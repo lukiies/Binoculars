@@ -117,14 +117,6 @@ class Binoculars(object):
         model.eval()
         return model
 
-    @staticmethod
-    def _free(model):
-        if model is not None:
-            del model
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
     def change_mode(self, mode: str) -> None:
         if mode == "low-fpr":
             self.threshold = BINOCULARS_FPR_THRESHOLD
@@ -170,7 +162,15 @@ class Binoculars(object):
             del out
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-        self._free(model)
+        # Free THIS model before returning so the next one never co-resides with
+        # it. The reference must be dropped in this scope: passing `model` to a
+        # helper and `del`-ing the argument there does NOT release it (the caller
+        # still holds a reference), and PyTorch modules have reference cycles, so
+        # we collect cycles and only then empty the CUDA cache.
+        del model
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         return logits_list
 
     def _compute_sequential(self, batch: list) -> list:
