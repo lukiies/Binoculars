@@ -52,16 +52,16 @@ function Show-Help {
     Write-Host "    .\ai_generated_checked.ps1 <path-to-document> [-Quant 4bit|8bit|none] [-MaxToken 512]"
     Write-Host ""
     Write-Host "  SUPPORTED DOCUMENT TYPES (text extraction):" -ForegroundColor Yellow
-    Write-Host "    .docx        Microsoft Word (2007+). Text is extracted from paragraphs"
-    Write-Host "                 AND table cells. <-- main supported document format."
+    Write-Host "    .docx        Microsoft Word (2007+). Text from paragraphs AND tables."
+    Write-Host "    .pdf         Digital PDFs (text layer extracted via pypdf)."
     Write-Host "    .txt .md     Plain-text / Markdown files are read as-is (no extraction)."
     Write-Host ""
-    Write-Host "    NOT supported: .pdf, .doc (legacy Word 97-2003), .odt, .rtf, .pages,"
-    Write-Host "    images/scans. Convert these to .docx (or paste the text into a .txt)"
-    Write-Host "    first. Only .docx extraction is wired up at the moment."
+    Write-Host "    NOT supported: .doc (legacy Word 97-2003), .odt, .rtf, .pages, and"
+    Write-Host "    SCANNED / image-only PDFs (no text layer - would need OCR). Convert"
+    Write-Host "    those to .docx / a text-based .pdf (or paste the text into a .txt)."
     Write-Host ""
     Write-Host "  PARAMETERS:" -ForegroundColor Yellow
-    Write-Host "    <path-to-document>   (required) The .docx / .txt / .md file to analyse."
+    Write-Host "    <path-to-document>   (required) The .docx / .pdf / .txt / .md file to analyse."
     Write-Host "    -Quant               4bit (default) | 8bit | none. 4bit fits 8 GB VRAM."
     Write-Host "    -MaxToken            Tokens per scoring window (default 512). The doc is"
     Write-Host "                         split into windows and scored, then length-weighted."
@@ -113,13 +113,19 @@ switch ($ext) {
         & $Py (Join-Path $ScriptDir 'scripts\extract_docx.py') $InputFull $TextFile
         if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: extraction failed." -ForegroundColor Red; exit 1 }
     }
+    '.pdf' {
+        $TextFile = Join-Path $ScriptDir 'extracted_text.txt'
+        Write-Host "Extracting text from .pdf ..." -ForegroundColor Cyan
+        & $Py (Join-Path $ScriptDir 'scripts\extract_pdf.py') $InputFull $TextFile
+        if ($LASTEXITCODE -ne 0) { Write-Host "ERROR: extraction failed." -ForegroundColor Red; exit 1 }
+    }
     { $_ -in '.txt', '.md', '.markdown', '.text' } {
         $TextFile = $InputFull
     }
     default {
         Write-Host "ERROR: unsupported file type '$ext'." -ForegroundColor Red
-        Write-Host "Supported: .docx (extracted), or plain text .txt / .md (used as-is)." -ForegroundColor Red
-        Write-Host "Convert PDFs / legacy .doc / .odt / .rtf to .docx first." -ForegroundColor Red
+        Write-Host "Supported: .docx / .pdf (extracted), or plain text .txt / .md (used as-is)." -ForegroundColor Red
+        Write-Host "Convert legacy .doc / .odt / .rtf (and scanned PDFs) to .docx first." -ForegroundColor Red
         exit 1
     }
 }
