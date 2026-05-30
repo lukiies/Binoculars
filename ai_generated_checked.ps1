@@ -13,7 +13,7 @@ param(
     [ValidateSet('4bit', '8bit', 'none')]
     [string]$Quant = '4bit',
 
-    [int]$MaxToken = 512
+    [int]$MaxToken = 384   # tuned for 8 GB VRAM headroom (smaller logit/activation buffers)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -49,7 +49,7 @@ function Show-Help {
     Write-Host "  fits fully into an 8 GB GPU (RTX 4060)."
     Write-Host ""
     Write-Host "  USAGE:" -ForegroundColor Yellow
-    Write-Host "    .\ai_generated_checked.ps1 <path-to-document> [-Quant 4bit|8bit|none] [-MaxToken 512]"
+    Write-Host "    .\ai_generated_checked.ps1 <path-to-document> [-Quant 4bit|8bit|none] [-MaxToken 384]"
     Write-Host ""
     Write-Host "  SUPPORTED DOCUMENT TYPES (text extraction):" -ForegroundColor Yellow
     Write-Host "    .docx        Microsoft Word (2007+). Text from paragraphs AND tables."
@@ -63,8 +63,13 @@ function Show-Help {
     Write-Host "  PARAMETERS:" -ForegroundColor Yellow
     Write-Host "    <path-to-document>   (required) The .docx / .pdf / .txt / .md file to analyse."
     Write-Host "    -Quant               4bit (default) | 8bit | none. 4bit fits 8 GB VRAM."
-    Write-Host "    -MaxToken            Tokens per scoring window (default 512). The doc is"
-    Write-Host "                         split into windows and scored, then length-weighted."
+    Write-Host "    -MaxToken            Tokens per scoring window (default 384, tuned for 8 GB"
+    Write-Host "                         VRAM headroom). Split into windows, scored, then"
+    Write-Host "                         length-weighted. Raise it (e.g. 512) if you have more VRAM."
+    Write-Host ""
+    Write-Host "  VRAM: the script auto-sets PYTORCH_ALLOC_CONF=expandable_segments:True" -ForegroundColor Yellow
+    Write-Host "  and uses a 384-token window so it stays comfortably under 8 GB. For maximum"
+    Write-Host "  headroom, close other GPU-heavy apps (browser, Teams) before running."
     Write-Host ""
     Write-Host "  EXAMPLES:" -ForegroundColor Yellow
     Write-Host "    .\ai_generated_checked.ps1 `"C:\path\to\My Essay.docx`""
@@ -104,6 +109,10 @@ $ext = [System.IO.Path]::GetExtension($InputFull).ToLowerInvariant()
 
 # Binoculars / HF env: Xet backend stalls & corrupts on this connection.
 $env:HF_HUB_DISABLE_XET = '1'
+# Keep VRAM under the 8 GB ceiling: expandable segments reduce CUDA fragmentation
+# and OOM risk near the limit (set before Python/torch starts). torch >= 2.6
+# renamed PYTORCH_CUDA_ALLOC_CONF -> PYTORCH_ALLOC_CONF (pinned env uses 2.9.1).
+$env:PYTORCH_ALLOC_CONF = 'expandable_segments:True'
 
 # --- Route by file type to produce a plain-text file for scoring ---
 switch ($ext) {
@@ -131,6 +140,8 @@ switch ($ext) {
 }
 
 # --- Run detection ---
+Write-Host "Tip: for maximum VRAM headroom on an 8 GB GPU, close other GPU-heavy apps" -ForegroundColor DarkGray
+Write-Host "     (browsers, Teams, games) before running." -ForegroundColor DarkGray
 Write-Host "Running Binoculars detection (quant=$Quant, max-token=$MaxToken) ..." -ForegroundColor Cyan
 & $Py (Join-Path $ScriptDir 'run_detection.py') $TextFile --quant $Quant --max-token $MaxToken
 exit $LASTEXITCODE

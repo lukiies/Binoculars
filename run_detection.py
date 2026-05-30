@@ -6,12 +6,17 @@ window is scored; the result is shown as a colored table, a headline verdict,
 and a visual position on the AI<->human classification scale.
 
 Usage:
-    python run_detection.py extracted_text.txt [--quant 4bit] [--max-token 512] [--no-color]
+    python run_detection.py extracted_text.txt [--quant 4bit] [--max-token 384] [--no-color]
 """
 import argparse
 import os
 import sys
 import time
+
+# Give CUDA room near the 8 GB ceiling: expandable segments cut fragmentation and
+# OOM risk. Must be set before torch initialises CUDA (override-able by the env).
+# torch >= 2.6 renamed PYTORCH_CUDA_ALLOC_CONF -> PYTORCH_ALLOC_CONF.
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 
 import numpy as np
 import torch
@@ -164,7 +169,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("text_file")
     ap.add_argument("--quant", default="4bit", choices=["4bit", "8bit", "none"])
-    ap.add_argument("--max-token", type=int, default=512)
+    ap.add_argument("--max-token", type=int, default=384)  # 8 GB-VRAM-friendly default
     ap.add_argument("--observer", default="tiiuae/falcon-7b")
     ap.add_argument("--performer", default="tiiuae/falcon-7b-instruct")
     ap.add_argument("--no-color", action="store_true", help="disable ANSI colours")

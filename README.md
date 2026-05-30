@@ -97,7 +97,9 @@ print(bino.predict("Some text to test..."))
 
 ### Reading the result
 
-Each ≤512-token window gets a **Binoculars score**; the tool reports a length-weighted
+Each scoring window (≤384 tokens by default, tuned to stay under 8 GB VRAM; the
+script also sets `PYTORCH_ALLOC_CONF=expandable_segments:True`) gets a
+**Binoculars score**; the tool reports a length-weighted
 aggregate and a verdict against two thresholds (`0.8536` low-false-positive /
 `0.9015` accuracy). **Lower = more AI-like.** Below the threshold → *"Most likely
 AI-generated"*; above → *"Most likely human-generated"*.
