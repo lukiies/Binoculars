@@ -162,3 +162,16 @@ cython_debug/
 samples/
 
 **.*ipynb
+
+# --- Local / private to this machine (never publish) ---
+extracted_text.txt
+detection_result.md
+scripts/download.log
+*.log
+
+# User documents analysed locally - never commit personal content
+*.docx
+*.doc
+*.pdf
+*.odt
+*.rtf
